@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Grille 64 interactive</title>
+
+<style>
+body {
+    font-family: Arial;
+    background:#1e1e1e;
+    color:white;
+    text-align:center;
+}
+
+/* ===== Conteneur global avec repères ===== */
+.board-container {
+    display:grid;
+    grid-template-columns: 50px repeat(8, 1fr);
+    grid-template-rows: 50px repeat(8, 1fr);
+    width:1300px;
+    margin:auto;
+}
+
+/* Cases */
+.cell {
+    padding:5px;
+    border-radius:5px;
+    font-size:12px;
+}
+
+/* Quadrants couleurs */
+.q1 { background:#2c3e50; }   /* Haut gauche */
+.q2 { background:#3d3d6b; }   /* Haut droite */
+.q3 { background:#2e5e4e; }   /* Bas gauche */
+.q4 { background:#5e3e2e; }   /* Bas droite */
+
+/* Séparation centrale */
+.border-right {
+    border-right:4px solid white;
+}
+.border-bottom {
+    border-bottom:4px solid white;
+}
+
+/* Repères lettres / chiffres */
+.label {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    font-size:18px;
+}
+
+input {
+    width:60px;
+}
+
+button {
+    margin:20px;
+    padding:10px 20px;
+    font-size:16px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Config Plateau Echec</h2>
+
+<div class="board-container" id="board"></div>
+
+<button onclick="save()">Sauvegarder</button>
+
+<script>
+
+const data = {{ data | tojson }};
+const board = document.getElementById("board");
+
+const letters = ["A","B","C","D","E","F","G","H"];
+
+/* ===== Ligne vide coin haut gauche ===== */
+board.appendChild(document.createElement("div"));
+
+/* ===== Lettres en haut ===== */
+for(let c=0;c<8;c++){
+    let label = document.createElement("div");
+    label.className="label";
+    label.innerText = letters[c];
+    board.appendChild(label);
+}
+
+/* ===== Création plateau ===== */
+for(let row=0; row<8; row++){
+
+    /* Chiffres côté gauche (8 → 1) */
+    let number = document.createElement("div");
+    number.className="label";
+    number.innerText = 8 - row;
+    board.appendChild(number);
+
+    for(let col=0; col<8; col++){
+
+        let i = row*8 + col;
+
+        const cell = document.createElement("div");
+        cell.classList.add("cell");
+
+        /* Détection quadrant */
+        if(row < 4 && col < 4) cell.classList.add("q1");
+        else if(row < 4 && col >= 4) cell.classList.add("q2");
+        else if(row >= 4 && col < 4) cell.classList.add("q3");
+        else cell.classList.add("q4");
+
+        /* Ligne centrale */
+        if(col === 3) cell.classList.add("border-right");
+
+        /* Colonne centrale */
+        if(row === 3) cell.classList.add("border-bottom");
+
+        cell.innerHTML = `
+            <div><b>${letters[col]}${8-row}</b></div>
+            I2C:<br><input id="a${i}" value="${data.addrI2C[i]}"><br>
+            NumLED:<br><input id="s1${i}" value="${data.seuil1[i]}"><br>
+            SEUIL:<br><input id="s2${i}" value="${data.seuil2[i]}">
+        `;
+
+        board.appendChild(cell);
+    }
+}
+
+function save(){
+    let newData = {
+        addrI2C: [],
+        seuil1: [],
+        seuil2: []
+    };
+
+    for(let i=0;i<64;i++){
+        newData.addrI2C.push(parseInt(document.getElementById("a"+i).value));
+        newData.seuil1.push(parseInt(document.getElementById("s1"+i).value));
+        newData.seuil2.push(parseInt(document.getElementById("s2"+i).value));
+    }
+
+    fetch("/save", {
+        method:"POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(newData)
+    }).then(r=>r.json())
+      .then(()=>alert("Sauvegardé dans config.cpp !"));
+}
+
+</script>
+
+</body>
+</html>

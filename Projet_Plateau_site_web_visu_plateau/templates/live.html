@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live Chess - Adrien & Léni</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body { background: #121212; color: white; font-family: sans-serif; text-align: center; }
+        .controls { background: #1e1e1e; padding: 20px; margin-bottom: 20px; border-bottom: 2px solid #3498db; }
+        .status-dot { height: 12px; width: 12px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .online { background-color: #2ecc71; }
+        .offline { background-color: #e74c3c; }
+        .board { display: grid; grid-template-columns: repeat(8, 70px); gap: 5px; justify-content: center; margin-top: 20px; }
+        .cell { width: 70px; height: 70px; border: 1px solid #333; display: flex; align-items: center; justify-content: center; flex-direction: column; font-size: 11px; transition: 0.3s; }
+        select, button { padding: 10px; border-radius: 5px; border: none; cursor: pointer; }
+        button { background: #3498db; color: white; font-weight: bold; }
+        .pion { width: 30px; height: 30px; border-radius: 50%; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="controls">
+    <h2>📡 Contrôle du Plateau</h2>
+    <select id="portSelect">
+        {% for port in ports %}
+            <option value="{{ port }}">{{ port }}</option>
+        {% endfor %}
+    </select>
+    <button onclick="connect()">Se connecter</button>
+    <button onclick="disconnect()" style="background:#c0392b;">Déconnecter</button>
+    <p>Statut: <span id="statusLabel"><span class="status-dot offline"></span>Déconnecté</span></p>
+</div>
+
+<div class="board" id="liveBoard"></div>
+
+<script>
+    const socket = io();
+    const boardDiv = document.getElementById("liveBoard");
+
+    // Création de la grille vide
+    for(let i=0; i<64; i++) {
+        let c = document.createElement("div");
+        c.className = "cell";
+        c.id = "case-" + i;
+        c.innerHTML = `<div id="pion-${i}"></div><span id="z-${i}">-</span>`;
+        boardDiv.appendChild(c);
+    }
+
+    function connect() {
+        const port = document.getElementById("portSelect").value;
+        fetch("/connect", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({port: port})
+        });
+    }
+
+    function disconnect() {
+        fetch("/disconnect", {method: "POST"});
+        updateStatusDisplay('déconnecté');
+    }
+
+    socket.on('connection_status', function(data) {
+        updateStatusDisplay(data.status);
+    });
+
+    function updateStatusDisplay(status) {
+        const label = document.getElementById("statusLabel");
+        if(status === 'connecté') {
+            label.innerHTML = `<span class="status-dot online"></span>Connecté`;
+        } else {
+            label.innerHTML = `<span class="status-dot offline"></span>Déconnecté`;
+        }
+    }
+
+    socket.on('update_board', function(data) {
+        data.forEach(item => {
+            const cell = document.getElementById("case-" + item.id);
+            const pion = document.getElementById("pion-" + item.id);
+            const zText = document.getElementById("z-" + item.id);
+
+            zText.innerText = item.z;
+            
+            // Logique de couleur de case et pion
+            if(item.etat === 1) { // BLANC
+                cell.style.background = "#2c3e50";
+                pion.className = "pion";
+                pion.style.background = "white";
+                pion.style.boxShadow = "0 0 10px white";
+            } else if(item.etat === 0) { // NOIR
+                cell.style.background = "#2c3e50";
+                pion.className = "pion";
+                pion.style.background = "#f1c40f"; // Jaune/Noir selon config
+                pion.style.boxShadow = "0 0 10px #f1c40f";
+            } else { // RIEN
+                cell.style.background = "transparent";
+                pion.className = "";
+                pion.style.background = "none";
+                pion.style.boxShadow = "none";
+            }
+        });
+    });
+</script>
+</body>
+</html>
