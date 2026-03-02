@@ -48,7 +48,7 @@ def serial_reader(port):
     try:
         # Configuration de la vitesse à 115200 comme dans l'Arduino [cite: 1]
         ser_instance = serial.Serial(port, 115200, timeout=1)
-        print(f"✅ Port série ouvert : {port}")
+        print(f"Port série ouvert : {port}")
         
         # On informe le front-end que la connexion est réussie
         socketio.emit('connection_status', {'status': 'connecté'})
@@ -86,17 +86,29 @@ def serial_reader(port):
                                 break
                             found_addresses.append(hex(ord(addr_byte)))
                         
-                        print(f"📍 Adresses trouvées : {found_addresses}")
+                        print(f" Adresses trouvées : {found_addresses}")
                         socketio.emit('i2c_results', found_addresses)
+                elif header == b'\xee\xee':
+                        print("retour Offset")
+                        found_addresses = []
+                        # On lit jusqu'à trouver 0xFF (fin du scan)
+                        while True:
+                            addr_byte = ser_instance.read(1)
+                            if not addr_byte or addr_byte == b'\xff':
+                                break
+                            found_addresses.append(hex(ord(addr_byte)))
+                        
+                        print(f" retour offset {found_addresses}")
+                        socketio.emit('return_offset', found_addresses)
     except Exception as e:
-        print(f"❌ Erreur série : {e}")
+        print(f"Erreur série : {e}")
         socketio.emit('connection_status', {'status': 'déconnecté'})
     finally:
         if ser_instance and ser_instance.is_open:
             ser_instance.close()
         ser_instance = None
         socketio.emit('connection_status', {'status': 'déconnecté'})
-        print("🔌 Port série fermé")
+        print("Port série fermé")
 
 # =========================================================
 # ROUTES FLASK (CORRIGÉES POUR CORRESPONDRE AU HTML)
@@ -108,7 +120,7 @@ def home():
 @app.route("/config")
 def config():
     if not os.path.exists(CPP_FILE):
-        return "❌ Fichier config.cpp introuvable"
+        return "Fichier config.cpp introuvable"
     with open(CPP_FILE, "r", encoding="utf-8") as f:
         content = f.read()
 
@@ -182,11 +194,23 @@ def i2c_page():
     ports = [port.device for port in serial.tools.list_ports.comports()]
     return render_template("i2c.html", ports=ports)
 
+@app.route("/OFFSET")
+def offset_page():
+    ports = [port.device for port in serial.tools.list_ports.comports()]
+    return render_template("offset.html", ports=ports)
+
 # Endpoint pour lancer le test
 @app.route("/run_i2c_test", methods=["POST"])
 def run_i2c_test():
     if ser_instance and ser_instance.is_open:
         ser_instance.write(b"test_I2C\n")
+        return jsonify({"status": "sent"})
+    return jsonify({"status": "error"}), 400
+
+@app.route("/run_offset", methods=["POST"])
+def run_offset():
+    if ser_instance and ser_instance.is_open:
+        ser_instance.write(b"offset\n")
         return jsonify({"status": "sent"})
     return jsonify({"status": "error"}), 400
 # =========================================================

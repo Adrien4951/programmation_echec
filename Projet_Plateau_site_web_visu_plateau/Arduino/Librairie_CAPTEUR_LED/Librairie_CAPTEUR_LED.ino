@@ -1,43 +1,21 @@
+// Auteur Adrien et léni 
+//programme banc de tes
+//config : speed serial 115200 / PIN_LED : a modifer en fonction arduino uno et esp32
+
 #include <Wire.h>
 #include <Adafruit_NeoPixel.h>
 #include "A31301.h"
 #include "config.h"
 
+
+
+//-----------variables globales------------//
+
 #define LED_PIN     2   // Broche GPIO de l'ESP32 --> A4 et Arduino UNO --> 2
 #define LED_COUNT    64   // Nombre de leds par module
 
 
-
-
-
-//-----------variables globales------------
-uint8_t ADDR_AFFICHAGE[16]={0x04,0x03,0x02,0x63,
-                            0x05,0x06,0x07,0x08,
-                            0x0C,0x0B,0x0A,0x09,
-                            0x0D,0x0E,0x0F,0x10};
-/*uint8_t tab_LED[16]={4,3,2,1,
-                     5,6,7,8,
-                     12,11,10,9,
-                     13,14,15,16};
-
-
-                     /*uint8_t A31301_ADDR[16]={0x04,0x03,0x02,0x02,0x05,0x06,0x07,0x08,0x0C,0x0B,0x0A,0x09,0x0D,0x0E,0x0F,0x0F}; // 4 : 0x63 et 16 : 0x10
-int16_t SEUIL_CAPT[16]={-10,20,38,29,-20,-35,2,-4,-4,7,3,-16,9,-10,-7,-10};
-uint8_t tab_LED[16]={4,3,2,1,
-                     5,6,7,8,
-                     12,11,10,9,
-                     13,14,15,16};*/
-
-//int16_t SEUIL_CAPT_NOIR[16]={0x04,0x03,0x02,0x63,0x05,0x06,0x07,0x08,0x0C,0x0B,0x0A,0x09,0x0D,0x0E,0x0F,0x10};
-uint8_t msg =' ';
-uint8_t a=0;
-
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
-
-
-
-
-
 // Fonction pour remplir les pixels un par un
 void colorWipe(uint32_t color, int wait) {
   for(int i=0; i<strip.numPixels(); i++) {
@@ -73,6 +51,7 @@ void setup() {
 void loop() {
 
 
+  //-----------------------fonction test appelé par le prog python------------------------------------------//
 if (Serial.available() > 0) {
     String command = Serial.readStringUntil('\n');
     command.trim();
@@ -94,49 +73,35 @@ if (Serial.available() > 0) {
       delay(500);
       return;
     }
+
+    if (command == "offset") {
+      // On envoie un header spécial pour le scan I2C
+      Serial.write(0xEE); 
+      Serial.write(0xEE);
+
+      for (uint8_t i = 0; i<64; i++) 
+      {
+        //-----moyen de la valeur a vide----//
+        uint16_t moyenZ = 0;
+        for (uint8_t m = 0; m<10; m++)
+        {
+          moyenZ += getZ(A31301_ADDR[i]);
+        }
+        moyenZ = moyenZ/10;
+        A31301_ADDR[i]=moyenZ;
+      }
+      
+      Serial.write(0xFF); // Fin du scan
+      delay(500);
+      return;
+    }
+
+
+
   }
 
-
-
-
-
-  uint8_t n=4;
-  static uint8_t umit=0;
-  bool pion=false;
-
-  //uint8_t tabX[n];
-  //uint8_t tabY[n];
-  int16_t tabZ[n];
-
-  //uint16_t sommeX=0;
-  //uint16_t sommeY=0;  
-  int16_t sommeZ=0;
-
-  //float resultX=0;
-  //float resultY=0;  
-  float resultZ=0;
-
-  for(uint8_t i=0;i<n;i++){
-    //tabX[i]=getX(0);
-    //tabY[i]=getY(0);
-    tabZ[i]=getZ(a);
-
-    //sommeX+=tabX[i];
-    //sommeY+=tabY[i];
-    sommeZ+=tabZ[i];
-  }
   
-  //resultX=sommeX/n;
-  //resultY=sommeY/n;
-  resultZ=sommeZ/n;
-
-  // Send data on serial
-  //Serial.println(resultX);
-  //Serial.print(",");
-  //Serial.print(resultY);
-  //Serial.print(",");
-  
-  //---------Affichage détection des pions-------- 
+  //---------Gestion des cases du plateau-------- 
     //Serial.println("-----------------");
   Serial.write(0xAA); 
   Serial.write(0xBB);
@@ -176,62 +141,4 @@ if (Serial.available() > 0) {
     }
     Serial.write(checksum);
 
-    //Serial.print("\n\n\n");
-  
-
-  /*//---------Affichage détection d'un pion-------- 
-    if(presence_pion_blanc(a)){
-      //Serial.print("| Pion blanc");
-      Serial.print("\t adress capt : ");
-      Serial.print(A31301_ADDR[a]);
-      Serial.print("\t num led : ");
-      Serial.print(tab_LED[a]-1);
-      setuLED(a,strip.Color(255, 255, 255));
-    }
-    else if(presence_pion_noir(a)){
-      //Serial.print("| Pion noir ");
-      Serial.print("\t adress capt : ");
-      Serial.print(A31301_ADDR[a]);
-      Serial.print("\t num led : ");
-      Serial.print(tab_LED[a]-1);
-      setuLED(a,strip.Color(255, 0, 0));
-    }
-    else{
-      //Serial.print("|Pas de pion");
-      Serial.print("\t adress capt : ");
-      Serial.print(A31301_ADDR[a]);
-      Serial.print("\t num led : ");
-      Serial.print(tab_LED[a]-1);
-      setuLED(a,strip.Color(0, 0, 0));
-    }
-    if (Serial.available()) {
-      msg = Serial.read();
-    }
-    if(msg=='+'){
-      a++;
-    }
-    else if(msg=='-'){
-      a--;
-    }
-    Serial.print("\t a : ");
-    Serial.println(a);
-  */
-
-  /*//---------Affichage de la valeur de l'axe Z du magnétomètre-------- 
-
-    //Serial.print("\ta = ");
-    //Serial.print(a);
-    //Serial.print("\tValeur du champ magnetique : ");
-    Serial.println(getZ(a)); 
-    
-    if (Serial.available()) {
-      msg = Serial.read();
-    }
-    if(msg=='+'){
-      a++;
-    }
-    else if(msg=='-'){
-      a--;
-    }
-  */
 }
