@@ -11,7 +11,7 @@
 
 //-----------variables globales------------//
 
-#define LED_PIN     2   // Broche GPIO de l'ESP32 --> A4 et Arduino UNO --> 2
+#define LED_PIN     A4  // Broche GPIO de l'ESP32 --> A4 et Arduino UNO --> 2
 #define LED_COUNT    64   // Nombre de leds par module
 
 
